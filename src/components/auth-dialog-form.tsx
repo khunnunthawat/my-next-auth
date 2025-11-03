@@ -37,6 +37,11 @@ export type AuthFormValues = {
   otp?: string;
 };
 
+export enum AuthAction {
+  LOGIN = 'login',
+  REGISTER = 'register',
+}
+
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg role='img' viewBox='0 0 24 24' {...props}>
     <path
@@ -47,7 +52,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 interface AuthFormProps {
-  action: 'login' | 'register';
+  action: AuthAction;
   onSuccess: () => void;
 }
 
@@ -192,11 +197,16 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
       } else {
         // Reset attempts on success
         setOtpAttempts(0);
-        toast.success(action === 'login' ? 'Login Done' : 'Register Done', {
-          description: `You have successfully ${
-            action === 'login' ? 'logged in' : 'registered and logged in'
-          }.`,
-        });
+        toast.success(
+          action === AuthAction.LOGIN ? 'Login Done' : 'Register Done',
+          {
+            description: `You have successfully ${
+              action === AuthAction.LOGIN
+                ? 'logged in'
+                : 'registered and logged in'
+            }.`,
+          }
+        );
         onSuccess();
       }
     } catch (error: unknown) {
@@ -206,9 +216,12 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         !error.message.includes('OTP') &&
         !error.message.includes('otp')
       ) {
-        toast.error(`${action === 'login' ? 'Login' : 'Registration'} Failed`, {
-          description: 'An unexpected error occurred. Please try again.',
-        });
+        toast.error(
+          `${action === AuthAction.LOGIN ? 'Login' : 'Registration'} Failed`,
+          {
+            description: 'An unexpected error occurred. Please try again.',
+          }
+        );
       }
     }
     setIsSubmitting(false);
@@ -337,7 +350,7 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
                   <LogIn className='mr-2' />
                 )}
                 {!isSubmitting &&
-                  (action === 'login'
+                  (action === AuthAction.LOGIN
                     ? 'Verify & Sign In'
                     : 'Verify & Register')}
               </Button>

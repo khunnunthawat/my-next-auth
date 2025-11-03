@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { UserPlus } from 'lucide-react';
-import { AuthForm } from './auth-dialog-form';
+import { AuthAction, AuthForm } from './auth-dialog-form';
 
 export function RegisterDialog() {
   const [open, setOpen] = useState(false);
@@ -38,7 +38,7 @@ export function RegisterDialog() {
             Create an account to get started.
           </DialogDescription>
         </DialogHeader>
-        <AuthForm action='register' onSuccess={handleSuccess} />
+        <AuthForm action={AuthAction.REGISTER} onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   );

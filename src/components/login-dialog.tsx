@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { LogIn } from 'lucide-react';
-import { AuthForm } from './auth-dialog-form';
+import { AuthAction, AuthForm } from './auth-dialog-form';
 
 export function LoginDialog() {
   const [open, setOpen] = useState(false);
@@ -37,7 +37,7 @@ export function LoginDialog() {
             Enter your email to sign in or continue with Google.
           </DialogDescription>
         </DialogHeader>
-        <AuthForm action='login' onSuccess={handleSuccess} />
+        <AuthForm action={AuthAction.LOGIN} onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   );

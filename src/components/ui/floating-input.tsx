@@ -1,16 +1,44 @@
 'use client';
 
 import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
+const floatingInputVariants = cva(
+  'relative overflow-hidden rounded-md transition-all duration-200',
+  {
+    variants: {
+      variant: {
+        default: [
+          // Base background - matches shadcn Input
+          'bg-transparent dark:bg-input/30',
+          // Border - full border like shadcn Input
+          'border border-input shadow-xs',
+        ],
+        primary: [
+          // Primary theme background
+          'bg-gray-800',
+          // Border with subtle styling
+          'border border-gray-700 shadow-xs',
+        ],
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+);
+
 export interface FloatingInputProps
-  extends Omit<React.ComponentProps<'input'>, 'placeholder'> {
+  extends Omit<React.ComponentProps<'input'>, 'placeholder'>,
+    VariantProps<typeof floatingInputVariants> {
   label: string;
   error?: string;
+  helperText?: string;
 }
 
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, type, label, error, ...props }, ref) => {
+  ({ className, type, label, error, helperText, variant, ...props }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasValue, setHasValue] = React.useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
@@ -36,11 +64,7 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
       <div className='relative w-full'>
         <div
           className={cn(
-            'relative overflow-hidden rounded-md transition-all duration-200',
-            // Base background - matches shadcn Input
-            'bg-transparent dark:bg-input/30',
-            // Border - full border like shadcn Input
-            'border border-input shadow-xs',
+            floatingInputVariants({ variant }),
             // Focus state - ring effect like shadcn Input
             isFocused &&
               !error &&
@@ -109,6 +133,13 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
         {error && (
           <p className='mt-1.5 text-xs text-destructive font-medium px-0.5'>
             {error}
+          </p>
+        )}
+
+        {/* Helper text - only show when no error */}
+        {!error && helperText && (
+          <p className='mt-1.5 text-xs text-muted-foreground px-0.5'>
+            {helperText}
           </p>
         )}
       </div>

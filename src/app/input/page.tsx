@@ -5,17 +5,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { FloatingInput } from '@/components/ui/floating-input';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 
 // Define validation schema
 const formSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -68,6 +66,7 @@ export default function InputPage() {
                     label='Email address'
                     type='email'
                     error={fieldState.error?.message}
+                    variant='primary'
                   />
                 </FormControl>
               </FormItem>
@@ -115,6 +114,25 @@ export default function InputPage() {
           </Button>
         </form>
       </Form>
+
+      <div className='mt-10 space-y-6'>
+        <FloatingInput
+          label='Email'
+          helperText="We'll never share your email"
+        />
+
+        <FloatingInput
+          label='Email'
+          helperText="We'll never share your email"
+          error='Invalid email format' // Error shows, helper text hidden
+        />
+
+        <FloatingInput
+          label='Password'
+          variant='primary'
+          helperText='Must be at least 8 characters'
+        />
+      </div>
     </div>
   );
 }

@@ -5,51 +5,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { signIn, useSession } from 'next-auth/react';
-import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from '@/components/ui/input-otp';
+import { Form } from '@/components/ui/form';
 import { toast } from 'sonner';
-import { LogIn, ArrowRight, Timer, Loader2 } from 'lucide-react';
-import { Separator } from './ui/separator';
-
-const emailSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address.' }),
-});
-
-const otpSchema = z.object({
-  otp: z.string().length(6, { message: 'Must be 6 digits' }),
-});
-
-export type AuthFormValues = {
-  email: string;
-  otp?: string;
-};
-
-export enum AuthAction {
-  LOGIN = 'login',
-  REGISTER = 'register',
-}
-
-const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg role='img' viewBox='0 0 24 24' {...props}>
-    <path
-      fill='currentColor'
-      d='M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.86 2.25-5.02 2.25-4.83 0-8.6-3.8-8.6-8.6s3.77-8.6 8.6-8.6c2.53 0 4.22.98 5.17 1.89l2.4-2.4C18.96 3.24 16.1 2 12.48 2 7.1 2 3.08 6.13 3.08 11.5s4.02 9.5 9.4 9.5c3.1 0 5.49-1.02 7.22-2.77 1.8-1.8 2.54-4.34 2.54-6.55 0-.9-.08-1.4-.18-1.82H12.48z'
-    />
-  </svg>
-);
+import {
+  AuthAction,
+  AuthStep,
+  AuthFormValues,
+  emailSchema,
+  otpSchema,
+  EmailStepSection,
+  OtpStepSection,
+  GoogleSignInSection,
+} from './auth';
 
 interface AuthFormProps {
   action: AuthAction;
@@ -57,7 +24,7 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ action, onSuccess }: AuthFormProps) {
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [step, setStep] = useState<AuthStep>(AuthStep.EMAIL);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [otpTimeout, setOtpTimeout] = useState(0);
@@ -66,7 +33,7 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
   const { data: session } = useSession();
 
   const currentResolver =
-    step === 'email'
+    step === AuthStep.EMAIL
       ? emailSchema
       : z.object({ email: emailSchema.shape.email, otp: otpSchema.shape.otp });
 
@@ -126,7 +93,7 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
       toast.info('OTP Sent (Demo)', {
         description: `An OTP has been sent to ${values.email}. Use '123456'.`,
       });
-      setStep('otp');
+      setStep(AuthStep.OTP);
       startOtpTimer();
     } catch (error: unknown) {
       toast.error('Failed to send OTP', {
@@ -233,167 +200,43 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
     await requestOtp({ email: form.getValues('email') });
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${secs
-      .toString()
-      .padStart(2, '0')}`;
+  const handleBackToEmail = () => {
+    setStep(AuthStep.EMAIL);
+    form.resetField('otp');
   };
 
-  const onSubmit = step === 'email' ? requestOtp : onFinalSubmit;
+  const onSubmit = step === AuthStep.EMAIL ? requestOtp : onFinalSubmit;
 
   return (
     <div className='w-full'>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
-          {step === 'email' && (
-            <FormField
-              control={form.control}
-              name='email'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder='you@example.com' {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          {step === AuthStep.EMAIL && (
+            <EmailStepSection form={form} isSubmitting={isSubmitting} />
+          )}
+
+          {step === AuthStep.OTP && (
+            <OtpStepSection
+              form={form}
+              action={action}
+              isSubmitting={isSubmitting}
+              otpTimeout={otpTimeout}
+              resendDisabled={resendDisabled}
+              onResendOtp={onResendOtp}
+              onBackToEmail={handleBackToEmail}
             />
-          )}
-
-          {step === 'otp' && (
-            <>
-              <p className='text-sm text-muted-foreground'>
-                An OTP has been sent to{' '}
-                <span className='font-medium text-foreground'>
-                  {form.getValues('email')}
-                </span>
-                .
-              </p>
-              <FormField
-                control={form.control}
-                name='otp'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>One-Time Password</FormLabel>
-                    <FormControl>
-                      <InputOTP
-                        maxLength={6}
-                        value={field.value}
-                        onChange={field.onChange}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        disabled={field.disabled}
-                      >
-                        <InputOTPGroup>
-                          <InputOTPSlot index={0} />
-                        </InputOTPGroup>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={1} />
-                        </InputOTPGroup>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={2} />
-                        </InputOTPGroup>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={3} />
-                        </InputOTPGroup>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={4} />
-                        </InputOTPGroup>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={5} />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className='flex justify-between items-center text-sm text-muted-foreground'>
-                <div className='flex items-center gap-2'>
-                  <Timer className='h-4 w-4' />
-                  <span>
-                    {otpTimeout > 0 ? formatTime(otpTimeout) : 'Expired'}
-                  </span>
-                </div>
-                <Button
-                  variant='link'
-                  type='button'
-                  onClick={onResendOtp}
-                  disabled={resendDisabled || otpTimeout > 298}
-                >
-                  Resend code
-                </Button>
-              </div>
-            </>
-          )}
-
-          {step === 'email' && (
-            <Button type='submit' className='w-full' disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className='animate-spin' /> : 'Continue'}
-              {!isSubmitting && <ArrowRight className='ml-2' />}
-            </Button>
-          )}
-
-          {step === 'otp' && (
-            <div className='flex flex-col gap-2'>
-              <Button
-                type='submit'
-                className='w-full'
-                disabled={isSubmitting || otpTimeout === 0}
-              >
-                {isSubmitting ? (
-                  <Loader2 className='animate-spin' />
-                ) : (
-                  <LogIn className='mr-2' />
-                )}
-                {!isSubmitting &&
-                  (action === AuthAction.LOGIN
-                    ? 'Verify & Sign In'
-                    : 'Verify & Register')}
-              </Button>
-              <Button
-                variant='outline'
-                className='w-full'
-                onClick={() => {
-                  setStep('email');
-                  form.resetField('otp');
-                }}
-              >
-                Back to email
-              </Button>
-            </div>
           )}
         </form>
       </Form>
 
-      <div className='relative my-4'>
-        <Separator />
-        <div className='absolute inset-0 flex items-center'>
-          <span className='w-full' />
-        </div>
-        <div className='relative flex justify-center text-xs uppercase'>
-          <span className='bg-background px-2 text-muted-foreground'>
-            Or continue with
-          </span>
-        </div>
-      </div>
-
-      <Button
-        variant='outline'
-        className='w-full'
-        onClick={handleGoogleSignIn}
-        disabled={isGoogleSubmitting}
-      >
-        {isGoogleSubmitting ? (
-          <Loader2 className='animate-spin' />
-        ) : (
-          <GoogleIcon className='mr-2 h-4 w-4' />
-        )}
-        {!isGoogleSubmitting && 'Google'}
-      </Button>
+      <GoogleSignInSection
+        isGoogleSubmitting={isGoogleSubmitting}
+        onGoogleSignIn={handleGoogleSignIn}
+      />
     </div>
   );
 }
+
+// Re-export types for backward compatibility
+export { AuthAction, AuthStep } from './auth/types';
+export type { AuthFormValues } from './auth/types';

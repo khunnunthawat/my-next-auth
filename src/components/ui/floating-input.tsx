@@ -76,8 +76,8 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
 
     const isFloating = isFocused || hasValue;
 
-    // Show clear button only when typing (focused and has value)
-    const isShowClearButton = showClearButton && isFocused && hasValue;
+    // Show clear button only when typing (focused and has value) and not disabled
+    const isShowClearButton = showClearButton && isFocused && hasValue && !props.disabled;
 
     // Handle clear button click
     const handleClear = () => {

@@ -69,12 +69,13 @@ export default function InputPage() {
                   <FloatingInput
                     {...field}
                     label='Email address'
-                    type='email'
+                    type='text'
+                    inputMode='email'
                     error={fieldState.error?.message}
                     variant='primary'
                     onClear={() => {
-                      // Clear the form field value
-                      form.setValue('email', '');
+                      // Clear the form field value and trigger validation
+                      form.setValue('email', '', { shouldValidate: true });
                       console.log('Email cleared');
                     }}
                   />
@@ -115,8 +116,8 @@ export default function InputPage() {
                     type='text'
                     error={fieldState.error?.message}
                     onClear={() => {
-                      // Clear the form field value
-                      form.setValue('username', '');
+                      // Clear the form field value and trigger validation
+                      form.setValue('username', '', { shouldValidate: true });
                       console.log('Username cleared');
                     }}
                   />
@@ -153,7 +154,7 @@ export default function InputPage() {
 
         <FloatingInput
           label='Email (with default clear button)'
-          helperText="Clear button is enabled by default - focus and type to see it"
+          helperText='Clear button is enabled by default - focus and type to see it'
           onClear={() => {
             console.log('Email cleared');
           }}

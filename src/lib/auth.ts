@@ -2,6 +2,7 @@ import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { verifyOtp } from './otp-store';
+import { userExists, createUser, getUserByEmail } from './user-store';
 
 /**
  * NextAuth Configuration
@@ -43,11 +44,30 @@ export const authOptions: NextAuthOptions = {
         }
 
         // OTP verified successfully
-        // In production, you would fetch user from database here
+        // Check if user exists
+        const exists = userExists(credentials.email);
+
+        let user;
+        if (exists) {
+          // Login flow: Get existing user
+          user = getUserByEmail(credentials.email);
+          if (!user) {
+            throw new Error('User not found');
+          }
+          console.log(`[Auth] User logged in: ${user.email}`);
+        } else {
+          // Registration flow: Create new user
+          user = createUser(
+            credentials.email,
+            credentials.email.split('@')[0] // Extract name from email for demo
+          );
+          console.log(`[Auth] New user registered: ${user.email}`);
+        }
+
         return {
-          id: credentials.email, // Using email as ID for demo
-          email: credentials.email,
-          name: credentials.email.split('@')[0], // Extract name from email for demo
+          id: user.id,
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
         };
       },
     }),
@@ -61,6 +81,18 @@ export const authOptions: NextAuthOptions = {
 
   // JWT token callbacks
   callbacks: {
+    async signIn({ user, account }) {
+      // Handle Google sign-in: create user if doesn't exist
+      if (account?.provider === 'google' && user.email) {
+        const exists = userExists(user.email);
+        if (!exists) {
+          createUser(user.email, user.name || user.email.split('@')[0]);
+          console.log(`[Auth] New user registered via Google: ${user.email}`);
+        }
+      }
+      return true;
+    },
+
     async jwt({ token, user, account }) {
       // Initial sign in
       if (user) {

@@ -25,6 +25,7 @@ export interface OtpStepSectionProps {
   resendDisabled: boolean;
   onResendOtp: () => void;
   onBackToEmail: () => void;
+  userMessage?: string;
 }
 
 export function OtpStepSection({
@@ -35,6 +36,7 @@ export function OtpStepSection({
   resendDisabled,
   onResendOtp,
   onBackToEmail,
+  userMessage,
 }: OtpStepSectionProps) {
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -46,6 +48,13 @@ export function OtpStepSection({
 
   return (
     <>
+      {userMessage && (
+        <div className='mb-2 p-3 rounded-md bg-muted/50 border border-border'>
+          <p className='text-sm font-medium text-foreground'>
+            {userMessage}
+          </p>
+        </div>
+      )}
       <p className='text-sm text-muted-foreground'>
         An OTP has been sent to{' '}
         <span className='font-medium text-foreground'>

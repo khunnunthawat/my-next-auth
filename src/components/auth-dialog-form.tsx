@@ -30,6 +30,8 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
   const [otpTimeout, setOtpTimeout] = useState(0);
   const [resendDisabled, setResendDisabled] = useState(true);
   const [otpAttempts, setOtpAttempts] = useState(0);
+  const [userMessage, setUserMessage] = useState<string>('');
+  const [actualAction, setActualAction] = useState<AuthAction>(action);
   const { data: session } = useSession();
 
   const currentResolver =
@@ -76,7 +78,12 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
   const requestOtp = async (values: Pick<AuthFormValues, 'email'>) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/auth/request-otp', {
+      // Use different API endpoints based on action
+      const apiEndpoint = action === AuthAction.REGISTER
+        ? '/api/auth/register-new-email'
+        : '/api/auth/check-existing-email';
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,15 +93,47 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
 
       const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to send OTP');
-      }
+      // Handle registration case
+      if (action === AuthAction.REGISTER) {
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to send OTP');
+        }
 
-      toast.info('OTP Sent (Demo)', {
-        description: `An OTP has been sent to ${values.email}. Use '123456'.`,
-      });
-      setStep(AuthStep.OTP);
-      startOtpTimer();
+        if (data.success) {
+          // Set the actual action based on whether user exists
+          // If user exists, we'll login instead of register
+          setActualAction(data.exists ? AuthAction.LOGIN : AuthAction.REGISTER);
+          setUserMessage(data.userMessage || (data.isNew ? 'Create account my-next-auth.' : 'This email already has an account with my-next-auth.'));
+
+          toast.info('OTP Sent (Demo)', {
+            description: `An OTP has been sent to ${values.email}. Use '123456'.`,
+          });
+          setStep(AuthStep.OTP);
+          startOtpTimer();
+        }
+      }
+      // Handle login case
+      else {
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to send OTP');
+        }
+
+        if (data.exists) {
+          // Email exists, proceed to OTP for login
+          setActualAction(AuthAction.LOGIN);
+          setUserMessage(data.userMessage || 'This email already has an account with my-next-auth.');
+          toast.info('OTP Sent (Demo)', {
+            description: `An OTP has been sent to ${values.email}. Use '123456'.`,
+          });
+          setStep(AuthStep.OTP);
+          startOtpTimer();
+        } else {
+          // Email doesn't exist during login
+          toast.error('Email Not Found', {
+            description: 'This email is not registered. Please register first.',
+          });
+        }
+      }
     } catch (error: unknown) {
       toast.error('Failed to send OTP', {
         description:
@@ -165,10 +204,10 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         // Reset attempts on success
         setOtpAttempts(0);
         toast.success(
-          action === AuthAction.LOGIN ? 'Login Done' : 'Register Done',
+          actualAction === AuthAction.LOGIN ? 'Login Done' : 'Register Done',
           {
             description: `You have successfully ${
-              action === AuthAction.LOGIN
+              actualAction === AuthAction.LOGIN
                 ? 'logged in'
                 : 'registered and logged in'
             }.`,
@@ -184,7 +223,7 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         !error.message.includes('otp')
       ) {
         toast.error(
-          `${action === AuthAction.LOGIN ? 'Login' : 'Registration'} Failed`,
+          `${actualAction === AuthAction.LOGIN ? 'Login' : 'Registration'} Failed`,
           {
             description: 'An unexpected error occurred. Please try again.',
           }
@@ -218,12 +257,13 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
           {step === AuthStep.OTP && (
             <OtpStepSection
               form={form}
-              action={action}
+              action={actualAction}
               isSubmitting={isSubmitting}
               otpTimeout={otpTimeout}
               resendDisabled={resendDisabled}
               onResendOtp={onResendOtp}
               onBackToEmail={handleBackToEmail}
+              userMessage={userMessage}
             />
           )}
         </form>

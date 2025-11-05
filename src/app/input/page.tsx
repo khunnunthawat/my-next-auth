@@ -48,13 +48,18 @@ export default function InputPage() {
           FloatingInput with React Hook Form
         </h1>
         <p className='text-sm text-muted-foreground mt-2'>
-          Example showing email validation with Zod + FormField + FormControl
+          Examples showing validation with Zod + FormField + FormControl and
+          clear button feature
+        </p>
+        <p className='text-xs text-muted-foreground mt-1'>
+          💡 The clear button (X icon) is enabled by default and appears only
+          when focused and typing. Click outside to hide it.
         </p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-          {/* Email Field with Validation */}
+          {/* Email Field with Validation (Clear button enabled by default) */}
           <FormField
             control={form.control}
             name='email'
@@ -67,13 +72,18 @@ export default function InputPage() {
                     type='email'
                     error={fieldState.error?.message}
                     variant='primary'
+                    onClear={() => {
+                      // Clear the form field value
+                      form.setValue('email', '');
+                      console.log('Email cleared');
+                    }}
                   />
                 </FormControl>
               </FormItem>
             )}
           />
 
-          {/* Password Field with Validation */}
+          {/* Password Field with Validation (Clear button disabled for security) */}
           <FormField
             control={form.control}
             name='password'
@@ -85,13 +95,14 @@ export default function InputPage() {
                     label='Password'
                     type='password'
                     error={fieldState.error?.message}
+                    showClearButton={false}
                   />
                 </FormControl>
               </FormItem>
             )}
           />
 
-          {/* Username Field with Validation */}
+          {/* Username Field with Validation (Clear button enabled by default) */}
           <FormField
             control={form.control}
             name='username'
@@ -103,34 +114,79 @@ export default function InputPage() {
                     label='Username'
                     type='text'
                     error={fieldState.error?.message}
+                    onClear={() => {
+                      // Clear the form field value
+                      form.setValue('username', '');
+                      console.log('Username cleared');
+                    }}
                   />
                 </FormControl>
               </FormItem>
             )}
           />
 
-          <Button type='submit' className='w-full'>
-            Submit
-          </Button>
+          <div className='flex gap-3'>
+            <Button type='submit' className='flex-1'>
+              Submit
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => form.reset()}
+              className='flex-1'
+            >
+              Reset
+            </Button>
+          </div>
         </form>
       </Form>
 
       <div className='mt-10 space-y-6'>
+        <div className='mb-6'>
+          <h2 className='text-xl font-semibold text-foreground'>
+            Standalone Examples
+          </h2>
+          <p className='text-sm text-muted-foreground mt-2'>
+            FloatingInput without React Hook Form
+          </p>
+        </div>
+
         <FloatingInput
-          label='Email'
-          helperText="We'll never share your email"
+          label='Email (with default clear button)'
+          helperText="Clear button is enabled by default - focus and type to see it"
+          onClear={() => {
+            console.log('Email cleared');
+          }}
         />
 
         <FloatingInput
-          label='Email'
+          label='Search'
+          type='text'
+          variant='primary'
+          helperText='Clear button appears only when focused and typing'
+          onClear={() => {
+            console.log('Search cleared');
+          }}
+        />
+
+        <FloatingInput
+          label='Email with Error'
           helperText="We'll never share your email"
           error='Invalid email format' // Error shows, helper text hidden
         />
 
         <FloatingInput
-          label='Password'
+          label='Password (clear button disabled)'
           variant='primary'
-          helperText='Must be at least 8 characters'
+          type='password'
+          helperText='Clear button disabled for security reasons'
+          showClearButton={false}
+        />
+
+        <FloatingInput
+          label='Username'
+          type='text'
+          helperText='Type to see the clear button'
         />
       </div>
     </div>

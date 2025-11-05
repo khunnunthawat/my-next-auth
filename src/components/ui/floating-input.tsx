@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const floatingInputVariants = cva(
@@ -35,10 +36,25 @@ export interface FloatingInputProps
   label: string;
   error?: string;
   helperText?: string;
+  showClearButton?: boolean;
+  onClear?: () => void;
 }
 
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, type, label, error, helperText, variant, ...props }, ref) => {
+  (
+    {
+      className,
+      type,
+      label,
+      error,
+      helperText,
+      variant,
+      showClearButton = true,
+      onClear,
+      ...props
+    },
+    ref
+  ) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasValue, setHasValue] = React.useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
@@ -59,6 +75,28 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
     }, [props.value, props.defaultValue]);
 
     const isFloating = isFocused || hasValue;
+
+    // Show clear button only when typing (focused and has value)
+    const isShowClearButton = showClearButton && isFocused && hasValue;
+
+    // Handle clear button click
+    const handleClear = () => {
+      if (inputRef.current) {
+        // Clear the input value
+        inputRef.current.value = '';
+        setHasValue(false);
+
+        // Create a synthetic event and trigger onChange
+        const event = new Event('input', { bubbles: true });
+        inputRef.current.dispatchEvent(event);
+
+        // Call the onClear callback if provided
+        onClear?.();
+
+        // Keep focus on input
+        inputRef.current.focus();
+      }
+    };
 
     return (
       <div className='relative w-full'>
@@ -101,12 +139,14 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             type={type}
             data-slot='input'
             className={cn(
-              'w-full bg-transparent px-3 pb-2 outline-none transition-[color,box-shadow]',
+              'w-full bg-transparent pb-2 outline-none transition-[color,box-shadow]',
               'text-base md:text-sm text-foreground',
               'selection:bg-primary selection:text-primary-foreground',
               'disabled:cursor-not-allowed disabled:pointer-events-none',
               // Add padding top when label is floating
               isFloating ? 'pt-5' : 'pt-6',
+              // Add padding right for clear button
+              isShowClearButton ? 'pr-10 pl-3' : 'px-3',
               className
             )}
             onFocus={(e) => {
@@ -127,6 +167,30 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             }}
             aria-invalid={!!error}
           />
+
+          {/* Clear Button - Show only when typing */}
+          {isShowClearButton && (
+            <button
+              type='button'
+              onMouseDown={(e) => {
+                // Prevent blur event from firing
+                e.preventDefault();
+                handleClear();
+              }}
+              className={cn(
+                'absolute right-3 top-1/2 -translate-y-1/2',
+                'flex items-center justify-center',
+                'w-5 h-5 rounded-full',
+                'text-muted-foreground hover:text-foreground',
+                'hover:bg-muted/50 transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
+              )}
+              tabIndex={-1}
+              aria-label='Clear input'
+            >
+              <X className='w-4 h-4' />
+            </button>
+          )}
         </div>
 
         {/* Error message */}

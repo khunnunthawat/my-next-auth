@@ -11,8 +11,10 @@ import {
   AuthAction,
   AuthStep,
   AuthFormValues,
-  emailSchema,
+  emailOrThaiIdSchema,
+  emailOnlySchema,
   otpSchema,
+  OTP_MESSAGES,
   EmailStepSection,
   OtpStepSection,
   GoogleSignInSection,
@@ -26,34 +28,48 @@ interface AuthFormProps {
 export function AuthForm({ action, onSuccess }: AuthFormProps) {
   const [step, setStep] = useState<AuthStep>(AuthStep.EMAIL);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  // const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [otpTimeout, setOtpTimeout] = useState(0);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [resendDisabled, setResendDisabled] = useState(true);
   const [otpAttempts, setOtpAttempts] = useState(0);
   const [userMessage, setUserMessage] = useState<string>('');
+  const [refCode, setRefCode] = useState<string>('');
   const [actualAction, setActualAction] = useState<AuthAction>(action);
   const { data: session } = useSession();
 
-  const currentResolver =
-    step === AuthStep.EMAIL
-      ? emailSchema
-      : z.object({ email: emailSchema.shape.email, otp: otpSchema.shape.otp });
+  // Combined schema for both steps - OTP validation happens manually in onFinalSubmit
+  // Use emailOnlySchema for REGISTER, emailOrThaiIdSchema for LOGIN
+  const baseSchema =
+    action === AuthAction.REGISTER ? emailOnlySchema : emailOrThaiIdSchema;
+  const combinedSchema = baseSchema.extend({
+    otp: z.string(),
+  });
 
   const form = useForm<AuthFormValues>({
-    resolver: zodResolver(currentResolver),
+    resolver: zodResolver(combinedSchema),
     defaultValues: { email: '', otp: '' },
+    mode: 'onChange',
   });
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (otpTimeout > 0) {
-      setResendDisabled(true);
       timer = setTimeout(() => setOtpTimeout(otpTimeout - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [otpTimeout]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCountdown > 0) {
+      setResendDisabled(true);
+      timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
     } else {
       setResendDisabled(false);
     }
     return () => clearTimeout(timer);
-  }, [otpTimeout]);
+  }, [resendCountdown]);
 
   useEffect(() => {
     if (
@@ -65,23 +81,24 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
   }, [session]);
 
   const startOtpTimer = () => {
-    setOtpTimeout(300); // 5 minutes
-    setTimeout(() => setResendDisabled(false), 2000); // Enable resend after 2s
+    setOtpTimeout(100); // 5 minutes (300 seconds)
+    setResendCountdown(60); // 60 seconds Countdown before resend is enabled
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleSubmitting(true);
-    await signIn('google', { callbackUrl: '/' });
-    setIsGoogleSubmitting(false);
-  };
+  // const handleGoogleSignIn = async () => {
+  //   setIsGoogleSubmitting(true);
+  //   await signIn('google', { callbackUrl: '/' });
+  //   setIsGoogleSubmitting(false);
+  // };
 
   const requestOtp = async (values: Pick<AuthFormValues, 'email'>) => {
     setIsSubmitting(true);
     try {
       // Use different API endpoints based on action
-      const apiEndpoint = action === AuthAction.REGISTER
-        ? '/api/auth/register-new-email'
-        : '/api/auth/check-existing-email';
+      const apiEndpoint =
+        action === AuthAction.REGISTER
+          ? '/api/auth/register-new-email'
+          : '/api/auth/check-existing-email';
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -103,7 +120,13 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
           // Set the actual action based on whether user exists
           // If user exists, we'll login instead of register
           setActualAction(data.exists ? AuthAction.LOGIN : AuthAction.REGISTER);
-          setUserMessage(data.userMessage || (data.isNew ? 'Create account my-next-auth.' : 'This email already has an account with my-next-auth.'));
+          setUserMessage(
+            data.userMessage ||
+              (data.isNew
+                ? 'Create account my-next-auth.'
+                : 'This email already has an account with my-next-auth.')
+          );
+          setRefCode(data.refCode || '');
 
           toast.info('OTP Sent (Demo)', {
             description: `An OTP has been sent to ${values.email}. Use '123456'.`,
@@ -121,7 +144,11 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         if (data.exists) {
           // Email exists, proceed to OTP for login
           setActualAction(AuthAction.LOGIN);
-          setUserMessage(data.userMessage || 'This email already has an account with my-next-auth.');
+          setUserMessage(
+            data.userMessage ||
+              'This email already has an account with my-next-auth.'
+          );
+          setRefCode(data.refCode || '');
           toast.info('OTP Sent (Demo)', {
             description: `An OTP has been sent to ${values.email}. Use '123456'.`,
           });
@@ -146,6 +173,19 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
   };
 
   const onFinalSubmit = async (values: AuthFormValues) => {
+    console.log('[Auth] onFinalSubmit called with values:', values);
+
+    // Validate OTP is provided and is 6 characters
+    if (!values.otp || values.otp.length !== 6) {
+      console.log('[Auth] OTP validation failed:', values.otp);
+      form.setError('otp', {
+        type: 'manual',
+        message: OTP_MESSAGES.REQUIRED,
+      });
+      return;
+    }
+
+    console.log('[Auth] Starting signIn with credentials');
     setIsSubmitting(true);
     setOtpAttempts((prev) => prev + 1);
 
@@ -156,6 +196,8 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         otp: values.otp,
       });
 
+      console.log('[Auth] signIn result:', result);
+
       if (result?.error) {
         // Handle specific OTP error cases
         const errorMessage = result.error.toLowerCase();
@@ -165,11 +207,11 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
           errorMessage.includes('incorrect')
         ) {
           const remainingAttempts = Math.max(0, 3 - otpAttempts);
-          toast.error('Incorrect OTP', {
+          toast.error(OTP_MESSAGES.INVALID, {
             description:
               remainingAttempts > 0
-                ? `The code you entered is incorrect. ${remainingAttempts} attempts remaining.`
-                : 'The code you entered is incorrect. Please request a new code.',
+                ? `${remainingAttempts} attempts remaining.`
+                : 'Please request a new code.',
           });
 
           // If too many attempts, suggest getting a new OTP
@@ -180,9 +222,8 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
             });
           }
         } else if (errorMessage.includes('expired')) {
-          toast.error('OTP Expired', {
-            description:
-              'Your verification code has expired. Please request a new one.',
+          toast.error(OTP_MESSAGES.EXPIRED, {
+            description: 'Please request a new one.',
           });
           setOtpTimeout(0); // Reset timer to show expired state
         } else if (errorMessage.includes('no otp found')) {
@@ -223,7 +264,9 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
         !error.message.includes('otp')
       ) {
         toast.error(
-          `${actualAction === AuthAction.LOGIN ? 'Login' : 'Registration'} Failed`,
+          `${
+            actualAction === AuthAction.LOGIN ? 'Login' : 'Registration'
+          } Failed`,
           {
             description: 'An unexpected error occurred. Please try again.',
           }
@@ -251,7 +294,11 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
           {step === AuthStep.EMAIL && (
-            <EmailStepSection form={form} isSubmitting={isSubmitting} />
+            <EmailStepSection
+              form={form}
+              isSubmitting={isSubmitting}
+              action={action}
+            />
           )}
 
           {step === AuthStep.OTP && (
@@ -260,18 +307,20 @@ export function AuthForm({ action, onSuccess }: AuthFormProps) {
               action={actualAction}
               isSubmitting={isSubmitting}
               otpTimeout={otpTimeout}
+              resendCountdown={resendCountdown}
               resendDisabled={resendDisabled}
               onResendOtp={onResendOtp}
               onBackToEmail={handleBackToEmail}
               userMessage={userMessage}
+              refCode={refCode}
             />
           )}
         </form>
       </Form>
 
       <GoogleSignInSection
-        isGoogleSubmitting={isGoogleSubmitting}
-        onGoogleSignIn={handleGoogleSignIn}
+      // isGoogleSubmitting={isGoogleSubmitting}
+      // onGoogleSignIn={handleGoogleSignIn}
       />
     </div>
   );

@@ -4,16 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { GoogleIcon } from '@/components/icons/google-icon';
+import { useOAuthPopup } from '../../hooks/useOAuthPopup';
 
-export interface GoogleSignInSectionProps {
-  isGoogleSubmitting: boolean;
-  onGoogleSignIn: () => void;
-}
+// export interface GoogleSignInSectionProps {
+//   isGoogleSubmitting: boolean;
+//   onGoogleSignIn: () => void;
+// }
 
-export function GoogleSignInSection({
-  isGoogleSubmitting,
-  onGoogleSignIn,
-}: GoogleSignInSectionProps) {
+export function GoogleSignInSection() {
+  const { openOAuthPopup, isLoading } = useOAuthPopup();
+
+  const onGoogleSignIn = () => {
+    openOAuthPopup();
+  };
+
   return (
     <>
       <div className='relative my-4'>
@@ -31,14 +35,14 @@ export function GoogleSignInSection({
         variant='outline'
         className='w-full'
         onClick={onGoogleSignIn}
-        disabled={isGoogleSubmitting}
+        disabled={isLoading}
       >
-        {isGoogleSubmitting ? (
+        {isLoading ? (
           <Loader2 className='animate-spin' />
         ) : (
           <GoogleIcon className='mr-2 h-4 w-4' />
         )}
-        {!isGoogleSubmitting && 'Google'}
+        {!isLoading && 'Google'}
       </Button>
     </>
   );

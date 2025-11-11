@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,16 +11,35 @@ import {
 import { Button } from '@/components/ui/button';
 import { UserPlus } from 'lucide-react';
 import { AuthAction, AuthForm } from './auth-dialog-form';
+import {
+  useAuthDialogStore,
+  AuthLoginRegisterAction,
+} from '@/stores/authDialogStore';
 
 export function RegisterDialog() {
-  const [open, setOpen] = useState(false);
+  const { isOpen, action, openDialog, closeDialog, setAction } =
+    useAuthDialogStore();
+  const isRegisterDialog = action === AuthLoginRegisterAction.REGISTER;
 
   const handleSuccess = () => {
-    setOpen(false);
+    closeDialog();
+  };
+
+  const handleSwitchToLogin = () => {
+    setAction(AuthLoginRegisterAction.LOGIN);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={isOpen && isRegisterDialog}
+      onOpenChange={(open) => {
+        if (open) {
+          openDialog(AuthLoginRegisterAction.REGISTER);
+        } else {
+          closeDialog();
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           variant='secondary'
@@ -35,10 +53,30 @@ export function RegisterDialog() {
         <DialogHeader>
           <DialogTitle>Register</DialogTitle>
           <DialogDescription>
-            Create an account to get started.
+            Enter your email address to create an account, or continue with
+            Google.
           </DialogDescription>
         </DialogHeader>
         <AuthForm action={AuthAction.REGISTER} onSuccess={handleSuccess} />
+
+        <div className='relative my-4'>
+          <div className='absolute inset-0 flex items-center'>
+            <span className='w-full border-t border-muted' />
+          </div>
+          <div className='relative flex justify-center text-xs uppercase'>
+            <span className='bg-background px-2 text-muted-foreground'>
+              Already have an account?
+            </span>
+          </div>
+        </div>
+
+        <Button
+          variant='outline'
+          onClick={handleSwitchToLogin}
+          className='w-full'
+        >
+          Login
+        </Button>
       </DialogContent>
     </Dialog>
   );

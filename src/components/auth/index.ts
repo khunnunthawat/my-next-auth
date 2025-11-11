@@ -1,5 +1,13 @@
 // Types and Enums
-export { AuthAction, AuthStep, emailSchema, otpSchema } from './types';
+export {
+  AuthAction,
+  AuthStep,
+  emailSchema,
+  emailOrThaiIdSchema,
+  emailOnlySchema,
+  otpSchema,
+  OTP_MESSAGES,
+} from './types';
 export type { AuthFormValues } from './types';
 
 // Components

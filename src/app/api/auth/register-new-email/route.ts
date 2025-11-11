@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { userExists, createUser } from '@/lib/user-store';
+import { userExists } from '@/lib/user-store';
 import { issueOtp } from '@/lib/otp-store';
 import { z } from 'zod';
 
 /**
  * API Route: Register New Email (Case 2)
  *
- * This route handles new email registration.
+ * This route handles new email registration (EMAIL ONLY).
  * If email doesn't exist, it issues an OTP for registration.
  * If email exists, it redirects to login flow.
+ *
+ * Note: Registration only supports email addresses, not Thai ID cards.
  *
  * Response includes:
  * - isNew: boolean indicating if this is a new registration
@@ -17,7 +19,7 @@ import { z } from 'zod';
  */
 
 const requestSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email({ message: 'Enter a valid email address.' }),
 });
 
 export async function POST(request: NextRequest) {
@@ -28,11 +30,11 @@ export async function POST(request: NextRequest) {
     const exists = userExists(email);
 
     // Always issue OTP and proceed, but indicate whether user exists
-    const otpCode = issueOtp(email);
+    const { code: otpCode, refCode } = issueOtp(email);
 
     if (!exists) {
-      // Case 2: New email - proceed with registration flow
-      console.log(`[Register New Email] New email: ${email}, OTP: ${otpCode}`);
+      // Case 2: New account - proceed with registration flow
+      console.log(`[Register New] New identifier: ${email}, OTP: ${otpCode}, RefCode: ${refCode}`);
 
       return NextResponse.json({
         success: true,
@@ -40,25 +42,27 @@ export async function POST(request: NextRequest) {
         exists: false,
         message: 'OTP sent for new registration',
         userMessage: 'Create account my-next-auth.',
+        refCode,
         // In production, don't include the actual OTP in the response
         ...(process.env.NODE_ENV === 'development' && { otp: otpCode }),
       });
     } else {
-      // Case 1: Email exists - proceed with login flow instead
-      console.log(`[Register New Email] Email exists: ${email}, proceeding with login, OTP: ${otpCode}`);
+      // Case 1: Account exists - proceed with login flow instead
+      console.log(`[Register New] Identifier exists: ${email}, proceeding with login, OTP: ${otpCode}, RefCode: ${refCode}`);
 
       return NextResponse.json({
         success: true,
         isNew: false,
         exists: true,
         message: 'OTP sent for existing account login',
-        userMessage: 'This email already has an account with my-next-auth.',
+        userMessage: 'This account already exists with my-next-auth.',
+        refCode,
         // In production, don't include the actual OTP in the response
         ...(process.env.NODE_ENV === 'development' && { otp: otpCode }),
       });
     }
   } catch (error) {
-    console.error('[Register New Email] Error:', error);
+    console.error('[Register New] Error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -84,20 +88,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Complete registration after OTP verification
- * This would typically be called from the credentials provider
- */
-export function completeRegistration(email: string, name?: string) {
-  try {
-    const user = createUser(email, name);
-    console.log(`[Register New Email] Registration completed for: ${email}`);
-    return { success: true, user };
-  } catch (error) {
-    console.error('[Register New Email] Registration failed:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Registration failed'
-    };
-  }
-}
+// NOTE: Registration completion is handled in the NextAuth credentials provider
+// See src/lib/auth.ts for the complete registration flow
